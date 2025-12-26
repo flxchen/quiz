@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CompTIA Quiz Engine</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>CompTIA Quiz Engine</h1>
+    <button onclick="loadDailyQuestion()">Daily Question</button>
+
+    <div class="box">
+      <h2>Instruction</h2>
+      <p>
+        The engine will automatically extract question, answer, explanation, and
+        objective.
+        <button type="button" onclick="toggleFormat()">Show Format</button>
+      </p>
+      <div id="formatHelp" class="hidden">
+        <pre>
+The Question:
+Your question text here
+A. Option one
+B. Option two
+C. Option three
+
+The Answer:
+A.
+
+The Explanation:
+Explanation text here
+
+The Objective:
+X.X - Description
+
+The Question (multiple correct answers):
+Your question text here
+A. Option one
+B. Option two
+C. Option three
+
+The Answer:
+A. C.
+
+The Explanation:
+Explanation text here
+
+The Objective:
+X.X - Description
+</pre
+        >
+      </div>
+      <textarea
+        id="rawInput"
+        rows="16"
+        placeholder="Paste CompTIA-style question here, use CORRECT format..."
+      ></textarea>
+
+      <button onclick="parseQuestion()">Add Question</button>
+      <button onclick="startQuiz()">Start Quiz</button>
+
+      <p>Questions loaded: <span id="count">0</span></p>
+    </div>
+
+    <div id="quizBox" class="box hidden">
+      <h2>Quiz</h2>
+      <div id="quizContent">
+        <p>Question <span id="current"></span> of <span id="total"></span></p>
+        <p id="quizQuestion"></p>
+        <div id="options"></div>
+        <div class="quiz-nav">
+          <button onclick="prevQuestion()">Previous</button>
+          <button onclick="nextQuestion()">Next</button>
+        </div>
+        <button class="hidden" id="submit-btn" onclick="submitAnswer()">
+          Submit
+        </button>
+      </div>
+      <div id="result" class="hidden"></div>
+    </div>
+    <img src="" class="hidden" id="movingImage" alt="Moving picture" />
+    <div id="finalScore" class="box hidden">
+      <h2>Quiz Complete</h2>
+      <p class="grade">Score: <span id="grade"></span></p>
+    </div>
+    <div id="report" class="hidden"></div>
+    <button class="hidden" id="reset-btn" onclick="reset()">Reset</button>
+    <script src="function.js"></script>
+  </body>
+</html>
