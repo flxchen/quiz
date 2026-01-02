@@ -1,3 +1,9 @@
 # Ignore all PNG images
 *.png
 *.gif
+*.pem
+*.json
+api.js
+question_stat.json
+node_modules/
+api/

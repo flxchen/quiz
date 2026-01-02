@@ -38,6 +38,8 @@ I built and used this engine myself to **pass CompTIA A+ Core 1**.
   - Clean dark-mode interface
   - Designed for focused testing
 
+- Question statistics
+record question answer results, correct, wrong
 ---
 
 ## 🛠️ Tech Stack
@@ -60,34 +62,29 @@ I built and used this engine myself to **pass CompTIA A+ Core 1**.
 
 ## 📘 Question Format Example
 The Question:
-Your question text here
-A. Option one
-B. Option two
-C. Option three
+<br>Your question text here
+<br>A. Option one
+<br>B. Option two
+<br>C. Option three
 
 The Answer:
-A.
-
-The Explanation:
+<br>A.
+<br>The Explanation:<br>
 Explanation text here
-
-The Objective:
-X.X - Description
+<br>The Objective:
+<br>X.X - Description
 
 The Question (multiple correct answers):
-Your question text here
-A. Option one
-B. Option two
-C. Option three
-
+<br>Your question text here
+<br>A. Option one
+<br>B. Option two
+<br>C. Option three
 The Answer:
 A. C.
-
 The Explanation:
 Explanation text here
-
 The Objective:
-X.X - Description
+<br>X.X - Description
 
 ---
 

@@ -1,3 +1,7 @@
+let stats = {};
+let isDailyQuestionLoaded = false;
+let randomBlock = "";
+let dailyAnswer = [];
 let quizzes = [];
 let userAnswers = [];
 let wrong = [];
@@ -16,6 +20,12 @@ let quizQuestion = document.getElementById("quizQuestion");
 let current = document.getElementById("current");
 let grade = document.getElementById("grade");
 let finalScore = document.getElementById("finalScore");
+let QUESTION_TEXT = "";
+const QUESTION_STAT_ID = "3037de2246a215184ec06dafee466b02";
+const QUESTION_STAT_FILE = "question_stats.json";
+const QUESTION_FILE = "question";
+const QUESTION_ID = "a60b4e0aee8fa75e9e6ac9297d45359f";
+const UPDATE_API = "https://v0-quiz-proxy.vercel.app/api/github/gists";
 const help = document.getElementById("formatHelp");
 const img = document.getElementById("movingImage");
 const viewportWidth = window.innerWidth;
@@ -25,7 +35,7 @@ let y = 0;
 
 let dx = 0.5; // horizontal speed
 let dy = 0.5; // vertical speed
-const MOVE_DURATION = 6000; 
+const MOVE_DURATION = 6000;
 
 function toggleFormat() {
   help.classList.toggle("hidden");
@@ -34,8 +44,8 @@ function pickImage() {
   const now = new Date();
   const month = now.getMonth(); // Months are 0-indexed (Jan is 0)
   const day = now.getDate();
-    const holidayImg="me.png";
-    const defaultimg="congrat.png";
+  const holidayImg = "me.png";
+  const defaultimg = "congrat.png";
   // Define the logic: Dec 25-31 OR Jan 1-2
   const isHolidayRange = (month === 11 && day > 24) || (month === 1 && day < 3);
   if (isHolidayRange) {
@@ -75,7 +85,7 @@ function moveAcrossPage() {
     }
 
     // Top edge
-    if (y - 2*imgHeight <= -viewportHeight) {
+    if (y - 2 * imgHeight <= -viewportHeight) {
       dy *= -1;
     }
 
@@ -91,43 +101,109 @@ async function loadDailyQuestion() {
   const today = new Date().toISOString().split("T")[0];
   const savedDate = localStorage.getItem("dailyQuestionDate");
   const savedQuestion = localStorage.getItem("dailyQuestionText");
-
+  isDailyQuestionLoaded = true;
   if (savedDate === today && savedQuestion) {
     alert("You have attempted the daily question, try again tomorrow :)");
+    isDailyQuestionLoaded = false;
     return;
   }
 
   try {
-    const rawUrl = "https://gist.githubusercontent.com/flxchen/a60b4e0aee8fa75e9e6ac9297d45359f/raw/99f92566246348d3c7bf8f480d62efd8417f8a3c/question";
-    const response = await fetch(rawUrl);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-    const text = await response.text();
-
-    // Split questions
-    const blocks = text.split(/(?=The Question)/i);
-    const randomBlock = blocks[Math.floor(Math.random() * blocks.length)];
-    localStorage.setItem("dailyQuestionDate", today);
+    if (QUESTION_TEXT.length < 1) {
+      //fetch question only question is empty
+      const rawUrl = `https://gist.githubusercontent.com/flxchen/${QUESTION_ID}/raw/${QUESTION_FILE}`;
+      const response = await fetch(rawUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      QUESTION_TEXT = await response.text();
+    }
+    // choose a random question
+    const blocks = QUESTION_TEXT.split(/(?=The Question)/i);
+    randomBlock = blocks[Math.floor(Math.random() * blocks.length)];
+    localStorage.setItem("dailyQuestionDate", today); //store questions and date in localStorage
     localStorage.setItem("dailyQuestionText", randomBlock);
     rawInput.value = randomBlock;
+    if(quizzes & quizzes.length > 0){reset()};
+    pickImage();
     parseQuestion();
     startQuiz();
+    loadQuestion();
     scrollToBottom(quizBox);
   } catch (err) {
     alert("Failed to load daily question file");
     console.error(err);
   }
 }
-function scrollToBottom(input){
-    input.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+//async question stat pipeline
+async function updateQuestionStats() {
+  // 1. READ (must finish first)
+  await readQuestionStats();
+  //console.log("feteced:",stats);
+  // 2. COMPUTE (sync, safe)
+  for (const { question, isCorrect } of dailyAnswer) {
+    computeQuestionStats(question, isCorrect);
+  }
+  //console.log("compute:",dailyAnswer);
+  // 3. EXPORT (must finish last)
+  await exportQuestionStats();
+  //console.log("export:",stats);
 }
-function parseQuestion() {
-  pickImage();
+
+//fetch daily question stats from gist
+async function readQuestionStats() {
+  const rawUrl = `https://api.github.com/gists/${QUESTION_STAT_ID}`;
+  const response = await fetch(rawUrl);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  const gist = await response.json();
+  stats = JSON.parse(gist.files[QUESTION_STAT_FILE].content);
+}
+//compute question stats
+function computeQuestionStats(question, isCorrect) {
+  let pair = Object.entries(stats).find(([_, val]) => val[0] === question);
+  let qIndex = pair ? pair[0] : null;
+  if (qIndex != null) {
+    if (isCorrect) {
+      stats[qIndex][1] += 1; // correct
+      stats["total"][1] += 1;
+    } else {
+      stats[qIndex][2] += 1; // wrong
+      stats["total"][2] += 1;
+    }
+    stats["total"][0] += 1; console.log(qIndex,". total:",stats["total"],"\n");
+  } else {
+    console.log(`error cannot find question ${question}`);
+  }
+}
+//update stats to gist
+async function exportQuestionStats() {
+  const response = await fetch(
+    `${UPDATE_API}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        gistId: QUESTION_STAT_ID,
+        fileName: QUESTION_STAT_FILE,
+        stats: stats,
+      }),
+    }
+  );
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Error updating gist: ${data.message}`);
+  }
+  console.log("Stats updated in Gist");
+}
+function scrollToBottom(input) {
+  input.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+function parseQuestion() {  
   const text = rawInput.value.trim();
   if (!text) {
     alert("empty question...");
@@ -211,9 +287,9 @@ function parseQuestion() {
       objective,
       multi: isMulti,
     });
+    count.textContent = quizzes.length;
   });
 
-  count.textContent = quizzes.length;
   rawInput.value = "";
 }
 
@@ -222,7 +298,6 @@ function startQuiz() {
     alert("No questions loaded");
     return;
   }
-
   total.textContent = quizzes.length;
   quizBox.classList.remove("hidden");
   submit_btn.classList.add("hidden");
@@ -242,7 +317,7 @@ function loadQuestion() {
     qLength > 1 ? q.question + ` (select ${qLength})` : q.question;
   current.textContent = index + 1;
   options.innerHTML = "";
-
+  //track user answers
   for (let key in q.options) {
     if (userAnswers[index]) {
       var checked = userAnswers[index].includes(key) ? "checked" : "";
@@ -259,7 +334,6 @@ function loadQuestion() {
       ""
     );
   }
-
   if (index == quizzes.length - 1) {
     submit_btn.classList.remove("hidden");
   }
@@ -296,16 +370,17 @@ function submitAnswer() {
   result.innerHTML = "";
   //grade question
   quizzes.forEach((quiz, qIndex) => {
+    const qLength = quiz.answers.length;
     const userSelected = userAnswers[qIndex] || [];
     const correctAnswers = quiz.answers;
-    const qLength = quiz.answers.length;
-
-    const isCorrect =
-      userSelected.length === correctAnswers.length &&
-      userSelected.every((a) => correctAnswers.includes(a));
-
+    const isCorrect = gradeQuestion(userSelected, correctAnswers);
+    if (randomBlock.includes(quiz.question)) {
+      //track user daily question result
+      dailyAnswer.push({ question: quiz.question, isCorrect: isCorrect });
+    }
     if (isCorrect) score++;
     else {
+      //track wrong question
       wrong.push(qIndex);
     }
     const icon = isCorrect
@@ -328,6 +403,10 @@ function submitAnswer() {
       </div>
     `;
   });
+  if (isDailyQuestionLoaded) {
+    //update question stats
+    updateQuestionStats();
+  }
   // Final grade
   let s = ((score / quizzes.length) * 100).toFixed(2);
   grade.textContent = score + "/" + quizzes.length + ": " + s;
@@ -336,10 +415,11 @@ function submitAnswer() {
   scrollToBottom(finalScore);
   //show animation for perferct score
   if (s === "100.00") {
-    grade.textContent+=" PERFECT!";
+    grade.textContent += " PERFECT!";
     moveAcrossPage();
   }
   if (wrong.length > 0) {
+    //explain wrong questions
     let cotent = `<p>You incorrectly answered one or more questions in the following objective areas:</p>`;
     report.classList.remove("hidden");
     report.innerHTML += cotent;
@@ -349,6 +429,13 @@ function submitAnswer() {
       }</p><strong> Objective:</strong>${quizzes[value].objective}</p>`;
     });
   }
+}
+//grade question
+function gradeQuestion(userSelected, correctAnswers) {
+  const isCorrect =
+    userSelected.length === correctAnswers.length &&
+    userSelected.every((a) => correctAnswers.includes(a));
+  return isCorrect;
 }
 //show all answered questions
 function load_Question(question, index) {
@@ -379,20 +466,20 @@ function outputOption(inputType, key, nameAttr, checked, index, q, disabled) {
   return option;
 }
 function reset() {
+  //reset user answers and wrong questions
   userAnswers = [];
   wrong = [];
-  localStorage.clear();
+  dailyAnswer = [];
   // Reset score
   score = 0;
   index = 0;
   // Hide result display
   result.innerHTML = "";
   report.innerHTML = "";
+  grade.textContent = "";
   report.classList.add("hidden");
   result.classList.add("hidden");
   finalScore.classList.add("hidden");
-  grade.textContent = "";
-  loadQuestion();
 }
 function nextQuestion() {
   if (index < quizzes.length - 1) {
